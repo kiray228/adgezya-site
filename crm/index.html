@@ -570,6 +570,33 @@
       r.append(i, b); l.append(r); return l;
     };
 
+    const tgf = el("form", "set");
+    tgf.append(el("h3", null, "Уведомления о заявках в Telegram"),
+      el("div", s.tg_chats ? "ok" : "muted", s.tg_chats
+        ? `Подключено: уведомления приходят в ${s.tg_chats} ${s.tg_chats === 1 ? "чат" : "чата"}.`
+        : "Не подключено. 1) В Telegram откройте @BotFather → /newbot → придумайте имя → скопируйте токен. 2) Откройте своего бота и нажмите «Старт». 3) Вставьте токен ниже и нажмите «Привязать»."),
+      field("tg_token", "Токен бота Telegram", "@BotFather → /newbot → токен вида 123456:ABC…", "password", s.has_tg_token));
+    const tgBar = el("div", "bar"), tgLink = el("button", "btn sec", "Привязать"), tgTest = el("button", "btn sec", "Отправить проверку");
+    const tgRes = el("div", "muted");
+    tgLink.type = tgTest.type = "button";
+    tgBar.append(tgLink, tgTest); tgf.append(tgBar, tgRes);
+    tgLink.onclick = async () => {
+      tgRes.className = "muted"; tgRes.textContent = "Ищу ваш чат с ботом…";
+      try {
+        const tok = tgf.querySelector("input[name=tg_token]").value.trim();   // токен сохраняем сразу, без «Сохранить»
+        if (tok) await api("/api/settings", { method: "POST", body: JSON.stringify({ tg_token: tok }) });
+        const d = await api("/api/settings/telegram", { method: "POST" });
+        if (d.ok) { tgRes.className = "ok"; tgRes.textContent = `Готово: @${d.bot} → ${d.chats.join(", ")}. В Telegram пришло подтверждение.`; }
+        else { tgRes.className = "bad"; tgRes.textContent = d.error; }
+      } catch (e) { tgRes.className = "bad"; tgRes.textContent = e.message; }
+    };
+    tgTest.onclick = async () => {
+      try {
+        const d = await api("/api/settings/telegram/test", { method: "POST" });
+        tgRes.className = d.sent ? "ok" : "bad"; tgRes.textContent = d.sent ? "Отправлено — проверьте Telegram" : "Не отправлено: вставьте токен и нажмите «Привязать»";
+      } catch (e) { tgRes.className = "bad"; tgRes.textContent = e.message; }
+    };
+
     const wa = el("form", "set");
     wa.append(el("h3", null, "WhatsApp (Cloud API)"));
     const status = el("div", "muted", s.has_wa_token && s.wa_phone_id ? "Ключи сохранены. Нажмите «Проверить подключение»." : "Не подключено — заполните поля по инструкции ниже.");
@@ -603,7 +630,7 @@
     const r = el("div", "bar"); r.append(save, test); actions.append(r, res);
     save.onclick = async () => {
       const body = {};
-      for (const f of [wa, bot, other]) for (const i of f.querySelectorAll("input[name]")) {
+      for (const f of [tgf, wa, bot, other]) for (const i of f.querySelectorAll("input[name]")) {
         if (i.type === "checkbox") body[i.name] = i.checked ? "1" : "0";
         else if (i.type === "password") { if (i.value.trim()) body[i.name] = i.value.trim(); }
         else body[i.name] = i.value.trim();
@@ -634,7 +661,7 @@
       "Имя профиля «Адгезия» Meta проверяет сама (обычно до пары дней). Если Meta попросит способ оплаты — добавьте его в WhatsApp Manager: платные только рассылки по шаблонам, ответы клиентам, которые написали сами, в течение 24 часов бесплатны.",
     ].forEach((t) => ol.append(el("li", null, t)));
     help.append(ol);
-    page.append(wa, bot, other, actions, help);
+    page.append(tgf, wa, bot, other, actions, help);
     app.append(page);
   }
 
